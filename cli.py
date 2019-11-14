@@ -145,6 +145,7 @@ def info(ctx):
     with ctx.obj as tran:
         print('ESC S/N:       %s' % tran.execute(ReadRegs(BT.ESC, 0x10, "14s"))[0].decode())
         print('ESC PIN:       %s' % tran.execute(ReadRegs(BT.ESC, 0x17, "6s"))[0].decode())
+        print('CPU ID:        %04x %04x %04x' % tran.execute(ReadRegs(BT.ESC, 0xda, "<HHH")))
         print()
         print_reg(tran, 'BLE Version:   %04x', 0x68, "<H")
         print_reg(tran, 'ESC Version:   %04x', 0x1A, "<H")
@@ -201,6 +202,29 @@ def changesn(ctx, new_sn):
 
         old_sn = tran.execute(ReadRegs(BT.ESC, 0x10, "14s"))[0]
         print("Current S/N:", old_sn)
+
+@cli.command()
+@click.argument('distance', type=int)
+@click.pass_context
+def set_odometer(ctx, distance):
+    from py9b.command.mfg import WriteOdometer, CalcOdometerAuth
+
+    with ctx.obj as tran:
+        cpuid = tran.execute(ReadRegs(BT.ESC, 0xda, "<LLL"))
+        print('CPU ID:        %08x %08x %08x' % cpuid)
+
+        old_distance, = tran.execute(ReadRegs(BT.ESC, 0x29, "<L"))
+        print('Old distance: %dm' % (old_distance,))
+
+        tran.execute(WriteOdometer(BT.ESC, distance, CalcOdometerAuth(cpuid)))
+
+        # save config and restart
+        tran.execute(WriteRegs(BT.ESC, 0x78, "<H", 0x01))
+        time.sleep(3)
+
+        new_distance, = tran.execute(ReadRegs(BT.ESC, 0x29, "<L"))
+        print('New distance: %dm' % (new_distance,))
+
 
 def pp_distance(dist):
     if dist < 1000:

@@ -4,6 +4,10 @@ from struct import pack
 from .base import BaseCommand, InvalidResponse
 
 
+class AuthError(Exception):
+    pass
+
+
 def CalcSNAuth(oldsn, newsn, uid3):
     s = 0
     for i in range(0x0E):
@@ -15,9 +19,6 @@ def CalcSNAuth(oldsn, newsn, uid3):
         s = 0x100000000 - s
 
     return s % 1000000
-
-class AuthError(Exception):
-    pass
 
 
 class WriteSN(BaseCommand):
@@ -35,4 +36,17 @@ class WriteSN(BaseCommand):
         return True
 
 
-__all__ = ["AuthError", "WriteSN", "CalcSNAuth"]
+def CalcOdometerAuth(cpuid):
+    return ((cpuid[0] + cpuid[1] + cpuid[2]) & 0xffffffff) ^ 0xffffffff
+
+
+class WriteOdometer(BaseCommand):
+    def __init__(self, dev, distance, auth):
+        print(auth)
+        super(WriteOdometer, self).__init__(
+            dst=dev, cmd=0x5c, arg=0x0, data=pack("<LL", auth, distance), has_response=False
+        )
+        self.dev = dev
+
+
+__all__ = ["AuthError", "WriteSN", "CalcSnAuth", "WriteOdometer", "CalcOdometerAuth"]
